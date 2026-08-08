@@ -1,0 +1,110 @@
+name: 更新市场数据并部署
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 10 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 配置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装数据依赖
+        run: python -m pip install -r requirements.txt
+
+      - name: 恢复 AKShare 缓存
+        if: github.event_name != 'push'
+        uses: actions/cache@v4
+        with:
+          path: .cache/akshare
+          key: akshare-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            akshare-${{ runner.os }}-
+
+      - name: 更新最新交易日数据
+        id: market
+        if: github.event_name != 'push'
+        shell: bash
+        run: |
+          previous_date="$(python -c "import json,pathlib; text=pathlib.Path('market-data.js').read_text(encoding='utf-8').strip(); print(json.loads(text.removeprefix('window.MARKET_REVIEW_DATA = ').removesuffix(';'))['meta']['dataDate'])")"
+          cp market-data.js /tmp/market-data.previous.js
+          python scripts/build_market_data.py
+          current_date="$(python -c "import json,pathlib; text=pathlib.Path('market-data.js').read_text(encoding='utf-8').strip(); print(json.loads(text.removeprefix('window.MARKET_REVIEW_DATA = ').removesuffix(';'))['meta']['dataDate'])")"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$previous_date" = "$current_date" ]; then
+            cp /tmp/market-data.previous.js market-data.js
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            echo "当前仍为 $current_date，无新交易日数据。"
+          else
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            echo "市场数据已更新至 $current_date。"
+          fi
+
+      - name: 运行数据测试
+        run: python -m unittest discover -s tests -v
+
+      - name: 检查前端语法
+        run: |
+          node --check app.js
+          node --check data.js
+          node --check market-data.js
+
+      - name: 提交最新数据
+        if: steps.market.outputs.updated == 'true'
+        shell: bash
+        run: |
+          if git diff --quiet -- market-data.js; then
+            echo "数据文件无变化，跳过提交。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add market-data.js
+          git commit -m "data: 更新市场复盘快照"
+          git push
+
+      - name: 准备静态站点
+        run: |
+          mkdir -p _site
+          cp index.html styles.css app.js data.js market-data.js _site/
+          touch _site/.nojekyll
+
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传静态站点
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: 发布 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

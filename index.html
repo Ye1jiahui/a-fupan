@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A股市场日终系统复盘工作台">
+  <meta name="color-scheme" content="light">
+  <title>A股收盘档案</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">跳到复盘内容</a>
+
+  <header class="app-header">
+    <div class="identity-block">
+      <span class="identity-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <div>
+        <h1>A股收盘档案</h1>
+        <p>A-SHARE CLOSE BOOK</p>
+      </div>
+    </div>
+
+    <div class="market-stamp" aria-live="polite">
+      <span>数据交易日</span>
+      <strong id="data-date">--</strong>
+      <b id="data-status">读取中</b>
+    </div>
+
+    <nav class="main-tabs" role="tablist" aria-label="复盘模块">
+      <button id="tab-overview" class="tab-button active" role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">市场总览</button>
+      <button id="tab-emotion" class="tab-button" role="tab" aria-selected="false" aria-controls="emotion" data-tab="emotion" tabindex="-1">情绪周期</button>
+      <button id="tab-boards" class="tab-button" role="tab" aria-selected="false" aria-controls="boards" data-tab="boards" tabindex="-1">板块复盘</button>
+      <button id="tab-identity" class="tab-button" role="tab" aria-selected="false" aria-controls="identity" data-tab="identity" tabindex="-1">辨识度观察</button>
+      <button id="tab-research" class="tab-button" role="tab" aria-selected="false" aria-controls="research" data-tab="research" tabindex="-1">机构调研</button>
+      <button id="tab-notes" class="tab-button" role="tab" aria-selected="false" aria-controls="notes" data-tab="notes" tabindex="-1">复盘笔记</button>
+    </nav>
+  </header>
+
+  <div id="warning-banner" class="warning-banner" hidden></div>
+
+  <section class="temperature-shell" aria-labelledby="temperature-title">
+    <div class="temperature-head">
+      <div>
+        <span class="section-kicker">7D MARKET TAPE</span>
+        <h2 id="temperature-title">7日市场温度带</h2>
+      </div>
+      <div id="selected-day-readout" class="selected-day-readout"></div>
+    </div>
+    <div id="temperature-tape" class="temperature-tape" role="list" aria-label="过去7个交易日情绪温度"></div>
+  </section>
+
+  <main id="workspace" class="workspace">
+    <section id="overview" class="tab-panel active" role="tabpanel" aria-labelledby="tab-overview">
+      <header class="panel-heading">
+        <div><span class="section-kicker">MARKET BREADTH</span><h2>市场总览</h2></div>
+        <p id="overview-summary" class="panel-summary"></p>
+      </header>
+      <div id="index-grid" class="index-grid"></div>
+      <div id="overview-kpis" class="metric-grid overview-metrics"></div>
+      <div class="overview-lower">
+        <section class="data-panel chart-panel" aria-labelledby="turnover-title">
+          <header class="data-panel-head"><div><span class="section-kicker">LIQUIDITY</span><h3 id="turnover-title">两市成交额</h3></div><strong id="turnover-delta"></strong></header>
+          <div id="turnover-chart" class="chart-host"></div>
+        </section>
+        <section class="data-panel breadth-panel" aria-labelledby="breadth-title">
+          <header class="data-panel-head"><div><span class="section-kicker">ADVANCE / DECLINE</span><h3 id="breadth-title">涨跌分布</h3></div></header>
+          <div id="breadth-chart" class="breadth-chart"></div>
+          <div id="breadth-numbers" class="breadth-numbers"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="emotion" class="tab-panel" role="tabpanel" aria-labelledby="tab-emotion" hidden>
+      <header class="panel-heading">
+        <div><span class="section-kicker">CYCLE SIGNALS</span><h2>情绪周期</h2></div>
+        <p id="emotion-summary" class="panel-summary"></p>
+      </header>
+      <div class="emotion-topline">
+        <section class="emotion-gauge" aria-labelledby="gauge-title">
+          <div><span class="section-kicker">TEMPERATURE</span><h3 id="gauge-title">情绪得分</h3></div>
+          <strong id="emotion-score">--</strong>
+          <div id="emotion-stage" class="stage-badge"></div>
+          <p id="emotion-confidence"></p>
+        </section>
+        <section class="data-panel emotion-chart-panel" aria-labelledby="emotion-trend-title">
+          <header class="data-panel-head emotion-chart-head">
+            <div><span class="section-kicker">7D PANORAMA</span><h3 id="emotion-trend-title">7日情绪全景</h3></div>
+            <div class="chart-legend" aria-label="图例"><span class="legend-limit-up">涨停</span><span class="legend-limit-down">跌停</span><span class="legend-score">情绪得分</span><span class="legend-broken">炸板率</span></div>
+          </header>
+          <div id="emotion-chart" class="chart-host"></div>
+        </section>
+      </div>
+      <div id="emotion-metrics" class="metric-grid emotion-metrics"></div>
+      <section class="data-panel matrix-panel" aria-labelledby="matrix-title">
+        <header class="data-panel-head"><div><span class="section-kicker">DAILY COMPARISON</span><h3 id="matrix-title">7日指标矩阵</h3></div></header>
+        <div id="emotion-matrix" class="matrix-wrap"></div>
+      </section>
+    </section>
+
+    <section id="boards" class="tab-panel" role="tabpanel" aria-labelledby="tab-boards" hidden>
+      <header class="panel-heading compact-heading">
+        <div><span class="section-kicker">SECTOR ROTATION</span><h2>板块复盘</h2></div>
+        <div class="panel-controls">
+          <div id="board-type-control" class="segmented" aria-label="板块类型">
+            <button class="active" data-board-type="industry">行业</button>
+            <button data-board-type="concept">概念</button>
+          </div>
+          <div id="board-period-control" class="segmented" aria-label="排序周期">
+            <button data-period="d1">1日</button>
+            <button data-period="d3">3日</button>
+            <button class="active" data-period="d7">7日</button>
+          </div>
+          <label class="compact-search"><span>搜索</span><input id="board-search" type="search" placeholder="板块或领涨股"></label>
+        </div>
+      </header>
+      <section class="data-panel board-leaders" aria-labelledby="board-leaders-title">
+        <header class="data-panel-head"><div><span class="section-kicker">TOP GROUPS</span><h3 id="board-leaders-title">强势板块</h3></div><span id="board-count"></span></header>
+        <div id="board-bars" class="board-bars"></div>
+      </section>
+      <div id="board-table" class="responsive-table board-table" role="table" aria-label="板块涨幅排名"></div>
+    </section>
+
+    <section id="identity" class="tab-panel" role="tabpanel" aria-labelledby="tab-identity" hidden>
+      <header class="panel-heading">
+        <div><span class="section-kicker">MARKET RECOGNITION</span><h2>辨识度观察</h2></div>
+        <p class="panel-summary">人气、强度、题材地位与市场确认共同构成辨识度。</p>
+      </header>
+      <section class="popular-strip" aria-labelledby="popular-title">
+        <header class="data-panel-head"><div><span class="section-kicker">POPULARITY TOP 20</span><h3 id="popular-title">市场人气</h3></div></header>
+        <div id="popular-list" class="popular-list"></div>
+      </section>
+      <section class="score-model" aria-label="辨识度评分构成">
+        <span><i class="model-attention"></i>人气与成交 30%</span>
+        <span><i class="model-strength"></i>价格强度 30%</span>
+        <span><i class="model-leadership"></i>题材地位 25%</span>
+        <span><i class="model-confirmation"></i>市场确认 15%</span>
+      </section>
+      <div id="identity-list" class="identity-list"></div>
+    </section>
+
+    <section id="research" class="tab-panel" role="tabpanel" aria-labelledby="tab-research" hidden>
+      <header class="panel-heading compact-heading">
+        <div><span class="section-kicker">INSTITUTIONAL RESEARCH</span><h2>机构调研</h2><p id="research-window" class="subline"></p></div>
+        <div class="research-controls">
+          <div class="control-group"><span>统计区间</span><div id="research-window-control" class="segmented" aria-label="机构统计区间">
+            <button data-window="d7">7天</button>
+            <button class="active" data-window="d30">30天</button>
+            <button data-window="d180">半年</button>
+          </div></div>
+          <div class="control-group"><span>榜单指标</span><div id="research-mode-control" class="segmented" aria-label="机构榜单类型">
+            <button class="active" data-mode="research">调研机构</button>
+            <button data-mode="rating">买入评级机构</button>
+          </div></div>
+        </div>
+      </header>
+      <section class="methodology-band" aria-label="机构数据统计口径">
+        <div><b>累计接待机构数</b><span>窗口内各场调研公告披露的“接待机构数量”之和；同一机构参加多场会重复计入，不代表去重机构数。</span></div>
+        <div><b>买入评级机构数</b><span>窗口内发布买入、增持、推荐、强烈推荐等积极评级的机构去重数；同日、同机构、同标题的报告先去重。</span></div>
+      </section>
+      <section class="data-panel bubble-panel" aria-labelledby="bubble-title">
+        <header class="data-panel-head"><div><span class="section-kicker">MARKET CAP LANES</span><h3 id="bubble-title">市值档位分布</h3></div><span id="bubble-caption"></span></header>
+        <div id="research-bubbles" class="bubble-host"></div>
+      </section>
+      <div id="research-buckets" class="research-buckets"></div>
+    </section>
+
+    <section id="notes" class="tab-panel" role="tabpanel" aria-labelledby="tab-notes" hidden>
+      <header class="panel-heading compact-heading">
+        <div><span class="section-kicker">DAILY JOURNAL</span><h2>复盘笔记</h2></div>
+        <div class="note-actions">
+          <label class="date-control"><span>交易日</span><select id="note-date"></select></label>
+          <button id="export-notes" class="command-button" type="button">导出笔记</button>
+          <label class="command-button file-command" for="import-notes">导入笔记</label>
+          <input id="import-notes" class="visually-hidden" type="file" accept="application/json,.json">
+        </div>
+      </header>
+      <section class="note-stage-panel" aria-labelledby="note-stage-title">
+        <div><span class="section-kicker">MARKET STAGE</span><h3 id="note-stage-title">市场阶段</h3><p id="stage-suggestion"></p></div>
+        <div id="note-stage-control" class="stage-control" role="radiogroup" aria-label="市场阶段"></div>
+      </section>
+      <div class="note-editor-grid">
+        <label class="note-field"><span>每日结论</span><textarea id="daily-conclusion" rows="7" placeholder="市场强弱、主线结构、交易反馈"></textarea></label>
+        <label class="note-field"><span>明日观察方向</span><textarea id="tomorrow-focus" rows="7" placeholder="观察方向、关键个股、确认条件、风险条件"></textarea></label>
+      </div>
+      <div class="autosave-line"><span id="autosave-status">等待输入</span><button id="clear-note" type="button">清空当日</button></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p id="source-line"></p>
+    <p>数据仅用于研究与复盘，不构成投资建议。</p>
+  </footer>
+
+  <aside id="stock-drawer" class="stock-drawer" aria-hidden="true" aria-labelledby="drawer-title">
+    <button id="drawer-close" class="drawer-close" type="button" title="关闭详情" aria-label="关闭详情">×</button>
+    <div id="drawer-content"></div>
+  </aside>
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="data.js"></script>
+  <script src="market-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
