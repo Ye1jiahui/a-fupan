@@ -27,7 +27,8 @@
     </div>
 
     <nav class="main-tabs" role="tablist" aria-label="复盘模块">
-      <button id="tab-overview" class="tab-button active" role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">市场总览</button>
+      <button id="tab-global" class="tab-button active" role="tab" aria-selected="true" aria-controls="global" data-tab="global">全局总览</button>
+      <button id="tab-overview" class="tab-button" role="tab" aria-selected="false" aria-controls="overview" data-tab="overview" tabindex="-1">市场总览</button>
       <button id="tab-emotion" class="tab-button" role="tab" aria-selected="false" aria-controls="emotion" data-tab="emotion" tabindex="-1">情绪周期</button>
       <button id="tab-boards" class="tab-button" role="tab" aria-selected="false" aria-controls="boards" data-tab="boards" tabindex="-1">板块复盘</button>
       <button id="tab-identity" class="tab-button" role="tab" aria-selected="false" aria-controls="identity" data-tab="identity" tabindex="-1">辨识度观察</button>
@@ -50,7 +51,38 @@
   </section>
 
   <main id="workspace" class="workspace">
-    <section id="overview" class="tab-panel active" role="tabpanel" aria-labelledby="tab-overview">
+    <section id="global" class="tab-panel global-panel active" role="tabpanel" aria-labelledby="tab-global">
+      <header class="global-heading">
+        <div>
+          <span class="section-kicker">CLOSE CONTROL DESK</span>
+          <h2>全局总览</h2>
+          <p>把今天的市场、情绪、板块、个股和机构线索压缩到一屏。</p>
+        </div>
+        <div class="global-heading-meta">
+          <span>当前选日</span>
+          <strong id="global-selected-date">--</strong>
+          <span id="global-selected-stage" class="global-stage-chip">--</span>
+        </div>
+      </header>
+
+      <section class="global-temperature" aria-labelledby="global-temperature-title">
+        <div class="global-section-label"><span class="section-kicker">SIGNAL RAIL</span><h3 id="global-temperature-title">7日市场温度</h3></div>
+        <div id="global-temperature-days" class="global-temperature-days" role="list" aria-label="全局总览的7日市场温度"></div>
+      </section>
+
+      <div class="global-route" aria-label="收盘复盘路径">
+        <span>01 温度</span><i aria-hidden="true">→</i><span>02 市场</span><i aria-hidden="true">→</i><span>03 板块</span><i aria-hidden="true">→</i><span>04 个股</span><i aria-hidden="true">→</i><span>05 机构</span><i aria-hidden="true">→</i><span>06 计划</span>
+      </div>
+
+      <div id="global-module-grid" class="global-module-grid"></div>
+
+      <footer class="global-footnote">
+        <span><b>数据链路</b> AKShare 快照 → 7日指标计算 → 静态复盘看板</span>
+        <span><b>更新</b> 交易日 18:00　·　缺失数据保留“--”并显示来源告警</span>
+      </footer>
+    </section>
+
+    <section id="overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-overview" hidden>
       <header class="panel-heading">
         <div><span class="section-kicker">MARKET BREADTH</span><h2>市场总览</h2></div>
         <p id="overview-summary" class="panel-summary"></p>

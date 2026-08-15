@@ -27,7 +27,7 @@ const stageColors = {
 };
 const stageOrder = ["冰点", "修复", "启动", "发酵", "高潮", "分歧", "退潮"];
 const state = {
-  activeTab: "overview",
+  activeTab: "global",
   selectedDate: data.tradingDays[data.tradingDays.length - 1],
   boardType: "industry",
   boardPeriod: "d7",
@@ -233,8 +233,9 @@ function showToast(message) {
 
 function activateTab(tabName, focus = false) {
   const available = Array.from(document.querySelectorAll(".tab-button")).map(button => button.dataset.tab);
-  const nextTab = available.includes(tabName) ? tabName : "overview";
+  const nextTab = available.includes(tabName) ? tabName : "global";
   state.activeTab = nextTab;
+  document.body.classList.toggle("is-global-view", nextTab === "global");
   document.querySelectorAll(".tab-button").forEach(button => {
     const active = button.dataset.tab === nextTab;
     button.classList.toggle("active", active);
@@ -309,9 +310,116 @@ function renderTemperatureTape() {
 function selectReviewDate(date) {
   state.selectedDate = date;
   renderTemperatureTape();
+  renderGlobal();
   renderOverview();
   renderEmotion();
-  if (state.activeTab !== "overview" && state.activeTab !== "emotion") activateTab("emotion");
+  if (state.activeTab !== "global" && state.activeTab !== "overview" && state.activeTab !== "emotion") activateTab("emotion");
+}
+
+function globalMiniSpark(values, tone = "data") {
+  const chart = sparkline(values);
+  return `<span class="global-spark ${tone}">${chart}</span>`;
+}
+
+function globalMetric(label, value, tone = "") {
+  return `<span class="global-metric"><small>${label}</small><strong class="${tone}">${value}</strong></span>`;
+}
+
+function renderGlobal() {
+  const currentEmotion = selectedEmotion() || {};
+  const currentOverview = latestOverview() || {};
+  const indices = data.overview.indices || [];
+  const visibleIndices = indices.slice(0, 6);
+  const boardList = [...(data.boards[state.boardType] || [])]
+    .sort((a, b) => (finite(b[state.boardPeriod]) ?? -Infinity) - (finite(a[state.boardPeriod]) ?? -Infinity))
+    .slice(0, 4);
+  const identityList = (data.identity.ranked || []).slice(0, 4);
+  const popularList = (data.identity.popular || []).slice(0, 4);
+  const researchBuckets = data.research.buckets || [];
+  const notes = readAllNotes();
+  const note = notes[currentNoteDate()] || {};
+  const stageColor = stageColors[currentEmotion.stage] || stageColors["修复"];
+  const periodLabel = {d1: "1日", d3: "3日", d7: "7日"}[state.boardPeriod] || "7日";
+
+  document.getElementById("global-selected-date").textContent = currentEmotion.date || data.meta.dataDate || "--";
+  const selectedStage = document.getElementById("global-selected-stage");
+  selectedStage.textContent = currentEmotion.stage || "--";
+  selectedStage.style.setProperty("--stage-color", stageColor);
+
+  document.getElementById("global-temperature-days").innerHTML = (data.emotion.daily || []).map(item => {
+    const color = stageColors[item.stage] || stageColors["修复"];
+    return `<button class="global-day-cell ${item.date === state.selectedDate ? "active" : ""}" type="button" role="listitem" data-date="${escapeHtml(item.date)}" title="切换到 ${escapeHtml(item.date)} 的全局复盘" style="--temperature-color:${color};--temperature-scale:${Math.max(.08, Math.min(1, (finite(item.score) || 0) / 100))}"><time>${shortDate(item.date)}</time><strong>${formatNumber(item.score, 0)}</strong><span>${escapeHtml(item.stage || "--")}</span></button>`;
+  }).join("");
+  document.querySelectorAll(".global-day-cell").forEach(button => button.addEventListener("click", () => selectReviewDate(button.dataset.date)));
+
+  const overviewMetrics = [
+    globalMetric("成交额", formatNumber(currentOverview.turnover, 0, "亿")),
+    globalMetric("涨 / 跌", `${formatNumber(currentOverview.up, 0)} / ${formatNumber(currentOverview.down, 0)}`, currentOverview.up >= currentOverview.down ? "is-up" : "is-down"),
+    globalMetric("涨停 / 跌停", `${formatNumber(currentEmotion.limitUp, 0)} / ${formatNumber(currentEmotion.limitDown, 0)}`),
+    globalMetric("涨跌中位数", formatChange(currentOverview.median), changeClass(currentOverview.median))
+  ].join("");
+  const indexCells = visibleIndices.map(index => {
+    const history = index.history || [];
+    const d7 = history.length > 1 && finite(history[0]) !== 0 ? ((finite(history.at(-1)) / finite(history[0])) - 1) * 100 : null;
+    return `<span class="global-index-mini"><b>${escapeHtml(index.name)}</b><strong>${formatNumber(index.value, 2)}</strong><em class="${changeClass(index.change)}">${formatChange(index.change)}</em>${globalMiniSpark(history, index.change >= 0 ? "up" : "down")}</span>`;
+  }).join("");
+
+  const emotionHistory = (data.emotion.daily || []).map(item => item.score);
+  const emotionMetrics = [
+    globalMetric("最高连板", formatNumber(currentEmotion.maxStreak, 0, "板")),
+    globalMetric("炸板率", formatNumber(currentEmotion.brokenRate, 1, "%"), changeClass(-(finite(currentEmotion.brokenRate) || 0))),
+    globalMetric("昨涨停溢价", formatChange(currentEmotion.previousPremium), changeClass(currentEmotion.previousPremium))
+  ].join("");
+  const boardRows = boardList.length ? boardList.map((item, index) => `<div class="global-board-row"><b>${String(index + 1).padStart(2, "0")}</b><span>${escapeHtml(item.name)}</span><em class="${changeClass(item[state.boardPeriod])}">${formatChange(item[state.boardPeriod])}</em><small>${escapeHtml(item.leader?.name || "--")}</small></div>`).join("") : `<div class="global-empty">暂无板块数据</div>`;
+  const identityRows = identityList.length ? identityList.map(item => `<div class="global-identity-row"><b>${String(item.rank).padStart(2, "0")}</b><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.role || "观察标的")}</small></span><em>${formatNumber(item.score, 0)}</em></div>`).join("") : popularList.map(item => `<div class="global-identity-row"><b>${String(item.rank).padStart(2, "0")}</b><span><strong>${escapeHtml(item.name)}</strong><small>人气</small></span><em class="${changeClass(item.change)}">${formatChange(item.change)}</em></div>`).join("");
+  const researchRows = researchBuckets.map(bucket => {
+    const top = [...(bucket.stocks || [])].filter(stock => (finite(researchStats(stock, "d30").researchInstitutions) || 0) > 0).sort((a, b) => (finite(researchStats(b, "d30").researchInstitutions) ?? -Infinity) - (finite(researchStats(a, "d30").researchInstitutions) ?? -Infinity))[0];
+    if (!top) return `<div class="global-research-row"><b>${escapeHtml(bucket.label)}</b><span>--</span><em>暂无</em></div>`;
+    const stats = researchStats(top, "d30");
+    return `<div class="global-research-row"><b>${escapeHtml(bucket.label)}</b><span><strong>${escapeHtml(top.name)}</strong><small>现价 ${formatNumber(top.price, 2)}元 · ${formatNumber(top.marketCap, 1)}亿</small></span><em>${formatNumber(stats.researchInstitutions, 0)}家</em></div>`;
+  }).join("");
+  const noteConclusion = note.dailyConclusion ? note.dailyConclusion.replace(/\s+/g, " ").slice(0, 54) : "尚未记录今日结论";
+  const noteFocus = note.tomorrowFocus ? note.tomorrowFocus.replace(/\s+/g, " ").slice(0, 54) : "尚未记录明日观察方向";
+
+  document.getElementById("global-module-grid").innerHTML = `
+    <button class="global-module-card" type="button" data-global-target="overview" title="打开市场总览">
+      <span class="global-card-top"><span class="global-card-index">01</span><span class="section-kicker">MARKET BREADTH</span><i aria-hidden="true">↗</i></span>
+      <h3>市场总览</h3>
+      <div class="global-index-grid">${indexCells}</div>
+      <div class="global-metric-row">${overviewMetrics}</div>
+      <div class="global-card-caption">成交额、涨跌分布和指数强弱 · 1日 / 7日</div>
+    </button>
+    <button class="global-module-card" type="button" data-global-target="emotion" title="打开情绪周期">
+      <span class="global-card-top"><span class="global-card-index">02</span><span class="section-kicker">CYCLE SIGNALS</span><i aria-hidden="true">↗</i></span>
+      <div class="global-emotion-main"><div class="global-score-ring" style="--score:${finite(currentEmotion.score) || 0};--stage-color:${stageColor}"><strong>${formatNumber(currentEmotion.score, 0)}</strong><span>情绪分</span></div><div><h3>情绪周期</h3><p class="global-stage-line" style="color:${stageColor}">${escapeHtml(currentEmotion.stage || "--")}</p><p class="global-card-caption">${escapeHtml(currentEmotion.confidence || "可用样本")} · 7日全景</p></div></div>
+      <div class="global-metric-row">${emotionMetrics}</div>
+      <div class="global-chart-line">${globalMiniSpark(emotionHistory, "data")}</div>
+    </button>
+    <button class="global-module-card" type="button" data-global-target="boards" title="打开板块复盘">
+      <span class="global-card-top"><span class="global-card-index">03</span><span class="section-kicker">SECTOR ROTATION</span><i aria-hidden="true">↗</i></span>
+      <div class="global-card-title-row"><h3>板块复盘</h3><span class="global-filter-chip">${state.boardType === "industry" ? "行业" : "概念"} · ${periodLabel}</span></div>
+      <div class="global-board-list">${boardRows}</div>
+      <div class="global-card-caption">领涨股同步显示 · 点击进入完整排名和搜索</div>
+    </button>
+    <button class="global-module-card" type="button" data-global-target="identity" title="打开辨识度观察">
+      <span class="global-card-top"><span class="global-card-index">04</span><span class="section-kicker">MARKET RECOGNITION</span><i aria-hidden="true">↗</i></span>
+      <div class="global-card-title-row"><h3>辨识度观察</h3><span class="global-filter-chip">Top 20</span></div>
+      <div class="global-identity-list">${identityRows}</div>
+      <div class="global-card-caption">人气成交 · 价格强度 · 题材地位 · 市场确认</div>
+    </button>
+    <button class="global-module-card" type="button" data-global-target="research" title="打开机构调研">
+      <span class="global-card-top"><span class="global-card-index">05</span><span class="section-kicker">INSTITUTIONAL RESEARCH</span><i aria-hidden="true">↗</i></span>
+      <div class="global-card-title-row"><h3>机构调研</h3><span class="global-filter-chip">30天 · 调研机构</span></div>
+      <div class="global-research-list">${researchRows || `<div class="global-empty">暂无机构数据</div>`}</div>
+      <div class="global-method-pills"><span>7天</span><span>30天</span><span>半年</span><span>现价</span><span>买入评级</span></div>
+    </button>
+    <button class="global-module-card" type="button" data-global-target="notes" title="打开复盘笔记">
+      <span class="global-card-top"><span class="global-card-index">06</span><span class="section-kicker">DAILY JOURNAL</span><i aria-hidden="true">↗</i></span>
+      <div class="global-card-title-row"><h3>复盘笔记</h3><span class="global-filter-chip">${escapeHtml(note.stage || currentEmotion.stage || "--")}</span></div>
+      <div class="global-note-preview"><span><b>每日结论</b><em>${escapeHtml(noteConclusion)}</em></span><span><b>明日观察</b><em>${escapeHtml(noteFocus)}</em></span></div>
+      <div class="global-note-status"><span class="save-dot"></span>${note.updatedAt ? "已自动保存" : "等待输入"}<span>JSON 导入 / 导出</span></div>
+    </button>`;
+  document.querySelectorAll("[data-global-target]").forEach(button => button.addEventListener("click", () => activateTab(button.dataset.globalTarget)));
 }
 
 function renderOverview() {
@@ -742,6 +850,7 @@ function loadNote() {
   renderStageControl(note.stage || suggested);
   document.getElementById("stage-suggestion").textContent = `系统建议：${suggested}`;
   document.getElementById("autosave-status").textContent = note.updatedAt ? `已保存 ${new Date(note.updatedAt).toLocaleString("zh-CN", {hour12: false})}` : "等待输入";
+  if (document.getElementById("global-module-grid")) renderGlobal();
 }
 
 function saveNote() {
@@ -757,6 +866,7 @@ function saveNote() {
     };
     writeAllNotes(notes);
     document.getElementById("autosave-status").textContent = `已自动保存 ${new Date().toLocaleTimeString("zh-CN", {hour12: false})}`;
+    renderGlobal();
   } catch {
     document.getElementById("autosave-status").textContent = "浏览器未允许本地保存";
   }
@@ -840,6 +950,7 @@ function setupNotes() {
 function renderAll() {
   renderMeta();
   renderTemperatureTape();
+  renderGlobal();
   renderOverview();
   renderEmotion();
   renderBoards();
